@@ -43,3 +43,9 @@ ln -sf "$PWD/memcheck" /opt/homebrew/bin/memcheck
 That's the whole trick. Commands are trimmed to the binary name so rows stay
 on one line even when a process has a 400-character argument list (looking at
 you, every Node app ever).
+
+## ☕ Support
+
+Free, and uses 0 MB of RAM while sitting on disk. If it caught a glutton for you, you can buy me a coffee:
+
+[![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/gigacook)
