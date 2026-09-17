@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# memcheck — list processes using significant RAM, with an option to kill one.
+#
+# Usage:
+#   memcheck            List top RAM-consuming processes (default threshold 1.0%)
+#   memcheck 0.5         List processes using >= 0.5% RAM
+#   memcheck kill <PID>  Kill a specific process by PID (SIGTERM, then confirm SIGKILL if needed)
+
+set -euo pipefail
+
+THRESHOLD="1.0"
+
+if [[ "${1:-}" == "kill" ]]; then
+    PID="${2:-}"
+    if [[ -z "$PID" ]]; then
+        echo "Usage: memcheck kill <PID>" >&2
+        exit 1
+    fi
+    if ! kill -0 "$PID" 2>/dev/null; then
+        echo "No such process: $PID" >&2
+        exit 1
+    fi
+    ps -p "$PID" -o pid,pcpu,pmem,rss,comm
+    read -r -p "Kill PID $PID? [y/N] " confirm
+    if [[ "$confirm" =~ ^[Yy]$ ]]; then
+        kill "$PID"
+        sleep 1
+        if kill -0 "$PID" 2>/dev/null; then
+            echo "Process still alive, sending SIGKILL..."
+            kill -9 "$PID"
+        fi
+        echo "Killed $PID."
+    else
+        echo "Aborted."
+    fi
+    exit 0
+fi
+
+if [[ -n "${1:-}" ]]; then
+    THRESHOLD="$1"
+fi
+
+echo "Processes using >= ${THRESHOLD}% RAM:"
+echo
+
+# Header
+printf "%-8s %6s %6s %10s  %s\n" "PID" "%MEM" "%CPU" "RSS(MB)" "COMMAND"
+
+# ps aux: RSS is in KB. Sort by %mem descending, filter by threshold.
+# COMMAND is trimmed to just the binary name (no path, no args) to keep rows on one line.
+ps aux | awk -v thresh="$THRESHOLD" 'NR>1 {
+    if ($4+0 >= thresh+0) print
+}' | sort -k4 -rn | awk '{
+    pid=$2; cpu=$3; mem=$4; rss=$6;
+    n=split($11, parts, "/");
+    cmd=parts[n];
+    if (length(cmd) > 40) cmd = substr(cmd, 1, 37) "...";
+    printf "%-8s %6s %6s %10.1f  %s\n", pid, mem, cpu, rss/1024, cmd
+}'
+
+echo
+echo "To kill a process: memcheck kill <PID>"
